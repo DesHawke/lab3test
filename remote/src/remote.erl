@@ -13,4 +13,4 @@
 -export([function/1]).
 
 function(N) ->
-  N*N.
+  "something".

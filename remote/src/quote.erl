@@ -10,172 +10,212 @@
 -author("user").
 
 %% API
-%-export([consumer/2, loanBroker/0, creditAgencyGateaway/0, bankQuoteGateaway/0, lenderGateaway/0, bank2/0, bank3/0, bank1/0]).
+%-export([consumer/2, loanBroker/0, creditAgencyGateway/0, bankQuoteGateway/0, lenderGateway/0, bank2/0, bank3/0, bank1/0]).
 
 -compile(export_all).
 
 consumer(0, _) ->
-  io:format("Consumer: finally done!"),
+  io:format("~nConsumer: finally done!~n"),
+
   pingLoop(pang, 'pidLoanBroker'),
   resolvePid(pidLoanBroker) ! done,
 
-  pingLoop(pang, 'pidCreditAgencyGateaway'),
-  resolvePid(pidCreditAgencyGateaway) ! done,
+  pingLoop(pang, 'pidCreditAgencyGateway'),
+  resolvePid(pidCreditAgencyGateway) ! done,
 
-  pingLoop(pang, 'pidBankQuoteGateaway'),
-  resolvePid(pidBankQuoteGateaway) ! done,
+  pingLoop(pang, 'pidBankQuoteGateway'),
+  resolvePid(pidBankQuoteGateway) ! done,
 
-  pingLoop(pang, 'pidLenderGateaway'),
-  resolvePid(pidLenderGateaway) ! done,
+  pingLoop(pang, 'pidLenderGateway'),
+  resolvePid(pidLenderGateway) ! done,
 
   pingLoop(pang, 'pidBank1'),
   resolvePid(pidBank1) ! done,
+
   pingLoop(pang, 'pidBank2'),
   resolvePid(pidBank2) ! done,
+
   pingLoop(pang, 'pidBank3'),
   resolvePid(pidBank3) ! done;
+
 consumer(Index, 0) ->
+  io:format("Consumer: getLoanQuote!~n"),
+
   pingLoop(pang, 'pidLoanBroker'),
-  io:format("Consumer: getLoanQuote!"),
   resolvePid(pidLoanBroker) ! getloanQuote,
+
   consumer(Index, 1);
+
 consumer(Index, 1) ->
   receive
     bestQuoteReport ->
-      io:format("Consumer: bestQuoteReport"),
+      io:format("Consumer: received bestQuote~n~n"),
       consumer(Index - 1, 0)
   end.
+
 
 loanBroker() ->
   receive
     done ->
       io:format("LoanBroker: done~n");
     getloanQuote ->
-      pingLoop(pang, 'pidConsumer'),
-      io:format("LoanBroker: received loanquote => getLoanQuotesWithScores!"),
-      resolvePid(pidCreditAgencyGateaway) ! getLoanQuotesWithScores,
+      io:format("LoanBroker: received loanquote => getLoanQuotesWithScores!~n"),
+
+      pingLoop(pang, 'pidCreditAgencyGateway'),
+      resolvePid(pidCreditAgencyGateway) ! getLoanQuotesWithScores,
+
       loanBroker();
     creditProfile ->
-      pingLoop(pang, 'pidCreditAgencyGateaway'),
-      io:format("LoanBroker: received creditprofile => getLenderList!"),
-      resolvePid(pidLenderGateaway) ! getLenderList,
+      io:format("LoanBroker: received creditprofile => getLenderList!~n"),
+
+      pingLoop(pang, 'pidLenderGateway'),
+      resolvePid(pidLenderGateway) ! getLenderList,
+
       loanBroker();
     lenderList ->
-      pingLoop(pang, 'pidLenderGateaway'),
-      io:format("LoanBroker: received lenderList => getBestQuote!"),
-      resolvePid(pidBankQuoteGateaway) ! getBestQuote,
+      io:format("LoanBroker: received lenderList => getBestQuote!~n"),
+
+      pingLoop(pang, 'pidBankQuoteGateway'),
+      resolvePid(pidBankQuoteGateway) ! getBestQuote,
+
       loanBroker();
     bestQuote ->
-      pingLoop(pang, 'pidBankQuoteGateaway'),
-      io:format("LoanBroker: bestQuote recieved => formalreport"),
+
+      io:format("LoanBroker: bestQuote recieved => formalreport~n"),
+
+      %pingLoop(pang, 'pidLoanBroker'),
       resolvePid(pidLoanBroker) ! formalReport,
+
       loanBroker();
     formalReport ->
-      io:format("LoanBroker: formalReport to consumer"),
+      io:format("LoanBroker: formalReport to consumer~n~n"),
+
+      pingLoop(pang, 'pidConsumer'),
       resolvePid(pidConsumer) ! bestQuoteReport,
+
       loanBroker()
   end.
 
-creditAgencyGateaway() ->
+creditAgencyGateway() ->
   receive
     done ->
-      io:format("CreditAgencyGateaway: done~n");
+      io:format("CreditAgencyGateway: done~n");
     getLoanQuotesWithScores ->
+      io:format("CreditAgencyGateway: getLoanQuotesWithScores => return creditprofile!~n~n"),
+
       pingLoop(pang, 'pidLoanBroker'),
-      io:format("CreditAgencyGateaway: return creditprofile!"),
       resolvePid(pidLoanBroker) ! creditProfile,
-      creditAgencyGateaway()
+
+      creditAgencyGateway()
   end.
 
-lenderGateaway() ->
+lenderGateway() ->
   receive
     done ->
-      io:format("LenderGateaway: done~n");
+      io:format("LenderGateway: done~n");
     getLenderList ->
+      io:format("LenderGateway: getLenderList => return lenderList!~n~n"),
+
       pingLoop(pang, 'pidLoanBroker'),
-      io:format("LenderGateaway: new consumer!"),
       resolvePid(pidLoanBroker) ! lenderList,
-      lenderGateaway()
+
+      lenderGateway()
   end.
 
-bankQuoteGateaway() ->
+bankQuoteGateway() ->
   receive
     done ->
-      io:format("BankQuoteGateaway: done~n");
+      io:format("BankQuoteGateway: done~n");
     getBestQuote ->
-      pingLoop(pang, 'pidLoanBroker'),
-      io:format("BankQuoteGateaway: getBestQuote!"),
-      resolvePid(pidBank1) ! getBankQuote,
-      resolvePid(pidBank2) ! getBankQuote,
-      resolvePid(pidBank3) ! getBankQuote,
-      bankQuoteGateaway();
-    bankQuote ->
+      io:format("BankQuoteGateway: getBestQuote! => getBankQuote~n"),
+
       pingLoop(pang, 'pidBank1'),
-      pingLoop(pang, 'pidBank2'),
-      pingLoop(pang, 'pidBank3'),
-      io:format("BankQuoteGateaway: getBankQuote!"),
-      resolvePid(pidBankQouteGateaway) ! getBestBankQuote,
-      bankQuoteGateaway();
+      resolvePid(pidBank1) ! getBankQuote,
+
+      %pingLoop(pang, 'pidBank2'),
+      %resolvePid(pidBank2) ! getBankQuote,
+
+      %pingLoop(pang, 'pidBank3'),
+      %resolvePid(pidBank3) ! getBankQuote,
+
+      bankQuoteGateway();
+    bankQuote ->
+      %pingLoop(pang, 'pidBank1'),
+      %pingLoop(pang, 'pidBank2'),
+      %pingLoop(pang, 'pidBank3'),
+      io:format("BankQuoteGateway: countingBest!~n"),
+
+      resolvePid(pidBankQuoteGateway) ! getBestBankQuote,
+
+      bankQuoteGateway();
     getBestBankQuote ->
-      io:format("BankQuoteGateaway: getBestQuote!"),
+      io:format("BankQuoteGateway: getBestBankQuote! => return bestQuote~n~n"),
+
+      pingLoop(pang, 'pidLoanBroker'),
       resolvePid(pidLoanBroker) ! bestQuote,
-      loanBroker()
+
+      bankQuoteGateway()
   end.
 
 bank1() ->
   receive
     done ->
-      io:format("Bank1: done~n");
+      io:format("Bank1: done~n"),
+      "Bank1: done~n";
     getBankQuote ->
-      pingLoop(pang, 'pidBankQuoteGateaway'),
-      io:format("Bank1: getBankQuote!"),
-      resolvePid(pidBankQuoteGateaway) ! getBankQuote
-  end,
-  bank1().
+      io:format("Bank1: getBankQuote! => return bankQuote~n~n"),
 
-bank2() ->
-  receive
-    done ->
-      io:format("Bank2: done~n");
-    getBankQuote ->
-      pingLoop(pang, 'pidBankQuoteGateaway'),
-      io:format("Bank2: getBankQuote!"),
-      resolvePid(pidBankQuoteGateaway) ! getBankQuote
-  end,
-  bank2().
+      pingLoop(pang, 'pidBankQuoteGateway'),
+      resolvePid(pidBankQuoteGateway) ! bankQuote,
+      bank1()
+  end.
 
-bank3() ->
-  receive
-    done ->
-      io:format("Bank3: done~n");
-    getBankQuote ->
-      pingLoop(pang, 'pidBankQuoteGateaway'),
-      io:format("Bank3: getBankQuote!"),
-      resolvePid(pidBankQuoteGateaway) ! getBankQuote
-  end,
-  bank3().
+%bank2() ->
+%  receive
+%    done ->
+%      io:format("Bank2: done~n");
+%    getBankQuote ->
+%      pingLoop(pang, 'pidBankQuoteGateway'),
+%      io:format("Bank2: getBankQuote!~n"),
+%      resolvePid(pidBankQuoteGateway) ! getBankQuote
+%  end,
+%  bank2().
+
+%bank3() ->
+%  receive
+%    done ->
+%      io:format("Bank3: done~n");
+%    getBankQuote ->
+%      pingLoop(pang, 'pidBankQuoteGateway'),
+%      io:format("Bank3: getBankQuote!~n"),
+%      resolvePid(pidBankQuoteGateway) ! getBankQuote
+%  end,
+%  bank3().
 
 runConsumerNode(N) ->
-  global:register_name(pidConsumer, spawn(quote, consumer, [N,0])).
+  global:unregister_name(pidConsumer),
+  global:register_name(pidConsumer, spawn(quote, consumer, [N, 0])).
 
 runLoanBrokerNode() ->
-  global:register_name(pidLoanBroker, spawn(quote, loanBroker,[])).
+  global:unregister_name(pidLoanBroker),
+  global:register_name(pidLoanBroker, spawn(quote, loanBroker, [])).
 
-runCreditAgencyGateaway() ->
-  global:register_name(pidCreditAgencyGateaway, spawn(quote,creditAgencyGateaway, [])).
+runCreditAgencyGateway() ->
+  global:unregister_name(pidCreditAgencyGateway),
+  global:register_name(pidCreditAgencyGateway, spawn(quote, creditAgencyGateway, [])).
 
-runLenderGateAway() ->
-  global:register_name(pidLenderGateaway, spawn(quote, lenderGateaway,[])).
+runLenderGateway() ->
+  global:unregister_name(pidLenderGateway),
+  global:register_name(pidLenderGateway, spawn(quote, lenderGateway, [])).
 
-runBankQuoteGateaway() ->
-  global:register_name(pidBankQuoteGateaway, spawn(quote, bankQuoteGateaway, [])).
+runBankQuoteGateway() ->
+  global:unregister_name(pidBankQuoteGateway),
+  global:register_name(pidBankQuoteGateway, spawn(quote, bankQuoteGateway, [])).
 
 runBank1Node() ->
+  global:unregister_name(pidBank1),
   global:register_name(pidBank1, spawn(quote, bank1, [])).
-runBank2Node() ->
-  global:register_name(pidBank2, spawn(quote, bank2, [])).
-runBank3Node() ->
-  global:register_name(pidBank3, spawn(quote, bank3, [])).
+
 
 %% ==============================================
 %% Internal functions
@@ -184,14 +224,14 @@ resolvePid(Atom) ->
   %io:format("Pid  ~n",[string:concat(erlang:atom_to_list(Atom),"@127.0.0.1")]),
   global:whereis_name(Atom).
 buildNodeAddress(Atom) ->
-  list_to_atom(string:concat(erlang:atom_to_list(Atom), "@mypc")).
+  list_to_atom(string:concat(erlang:atom_to_list(Atom), "@developer")).
 
 pingLoop(pong, NodeName) ->
   %io:format("node ~s registered ~n",[NodeName]),
   checkNodeByName(resolvePid(NodeName), NodeName),
   pingOK;
 pingLoop(pang, NodeName) ->
-  timer:sleep(3333),
+  timer:sleep(1),
 
   pingLoop(net_adm:ping(buildNodeAddress(NodeName)), NodeName).
 
